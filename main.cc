@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
 const int EXP_PER_LEVEL_MOD = 100;
+const int EXP_PER_FLOOR_MOD = 50;
+const int EXP_PER_KILL_MOD = 50;
 const int BASE_HEALTH_QUOTIANT = 10;
 const float ENEMIES_PER_FLOOR_MODIFIER = 1.5;
 enum DamageType
@@ -8,7 +10,7 @@ enum DamageType
 	DARK,
 	LIGHT,
 	STRIKING,
-	PEIRCING,
+	PIERCING,
 	ELEMENTAL,
 	NONE
 };
@@ -59,21 +61,21 @@ public:
 
 	bool defend;
 	bool attack;
-}
+};
 
 class Character
 {
 public:
-	Character(std::string name, int health, std::string character_type, Weapon* weapon, Armor* armor, int level)
+	Character(std::string name, int health, std::string class_name, Weapon* weapon, Armor* armor, int level)
 	{
 		this->name = name;
 		this->health = health;
-		this->character_type
+		this->class_name;
 		this->weapon = weapon;
 		this->armor = armor;		
 		this->level = level;
 		this->experience_points = 0;
-		this->next_level_at = level * EXP_PER_FLOOR_MOD;
+		this->next_level_at = level * EXP_PER_LEVEL_MOD;
 		this->action = new Actions();
 	}
 
@@ -144,7 +146,7 @@ public:
 		{
 			this->experience_points %= this->next_level_at;
 			this->level++;
-			this->next_level_at = this->level * EXP_PER_FLOOR_MOD;
+			this->next_level_at = this->level * EXP_PER_LEVEL_MOD;
 		}
 		if (exp != 0)
 		{
@@ -153,20 +155,20 @@ public:
 	}
 	void gain_exp(Character* c)
 	{
-		this->gain_exp(c->level * EXP_PER_FLOOR_MOD);
+		this->gain_exp(c->level * EXP_PER_KILL_MOD);
 	}
 	void print()
 	{
 		std::cout 
 			<< "=== " << this->name << " ===" << std::endl 
-			<< "Type: " << this->character_type << std::endl
+			<< "Type: " << this->class_name << std::endl
 			<< "Health: " << this->health << std::endl
 			<< "Weapon: " << this->weapon->name << std::endl
 			<< "Armor: " << this->armor->name << std::endl;
 	}
 
 	std::string name;
-	std::string character_type;
+	std::string class_name;
 	int health;
 	int level;
 	unsigned long experience_points;
@@ -180,8 +182,22 @@ public:
 	Mage(std::string name, int level): Character(
 			name,
 			BASE_HEALTH_QUOTIANT * 8,
+			"Mage",
 			new Weapon("Basic Staff", 1.5 * BASE_HEALTH_QUOTIANT, DamageType::ELEMENTAL),
 			new Armor("Hunters Garb", DamageType::ELEMENTAL, DamageType::NONE, DamageType::NONE),
+			level)
+	{}
+};
+
+class Archer: public Character
+{
+public:
+	Archer(std::stirng name): Character(
+			name,
+			BASE_HEALTH_QUOTIANT * 11,
+			"Archer",
+			new Weapon("Basic Bow", 1 * BASE_HEALTH_QUOTIANT, DamageType::PIERCING),
+			new Armor("Hunters Garb", DamageType::PIERCING, DamageType::NONE, DamageType::NONE),
 			level)
 	{}
 };
@@ -192,6 +208,7 @@ public:
 	Warrior(std::stirng name): Character(
 			name,
 			BASE_HEALTH_QUOTIANT * 10,
+			"Warrior",
 			new Weapon("Basic Sword", 1.1 * BASE_HEALTH_QUOTIANT, DamageType::STRIKING),
 			new Armor("Warriors Armor", DamageType::DARK, DamageType::NONE, DamageType::NONE),
 			level)
@@ -255,7 +272,7 @@ int main(void)
 			Character* enemy = generateEnemy(floor, player->level);
 			std::cout 
 				<< "You have encountered a level " << enemy->level  
-				<< " " << enemy->character_type 
+				<< " " << enemy->class_name 
 				<< " on your travels" 
 				<< std::endl;
 			do {
@@ -279,7 +296,9 @@ int main(void)
 
 			} while(enemy->is_alive());
 
+			player->gain_exp(enemy);
 		}
+		player->gain_exp(floor * EXP_PER_FLOOR_MOD);
 	} while(is_running);
 	
 	return 0;
