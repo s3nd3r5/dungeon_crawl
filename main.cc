@@ -70,7 +70,7 @@ public:
 	{
 		this->name = name;
 		this->health = health;
-		this->class_name;
+		this->class_name = class_name;
 		this->weapon = weapon;
 		this->armor = armor;		
 		this->level = level;
@@ -83,11 +83,13 @@ public:
 	{
 		if (this->action->is_attacking()) 
 		{
+			std::cout << this->name << " attacks!" << std::endl;
 			this->attack(enemy);
 		}
 		else if (this->action->is_defending())
 		{
 			// Do nothing
+			std::cout << this->name << " is defending!" << std::endl;
 		}
 		this->action->clear();
 
@@ -97,6 +99,7 @@ public:
 	{
 		if (this->action->is_defending())
 		{
+			std::cout << this->name << " has defended against the attack!" << std::endl;
 			damage = damage * .75;
 		}
 		if (type == this->armor->weakness)
@@ -172,6 +175,8 @@ public:
 	int health;
 	int level;
 	unsigned long experience_points;
+	unsigned long next_level_at;
+	Actions* action;
 	Weapon* weapon;
 	Armor* armor;
 };
@@ -192,7 +197,7 @@ public:
 class Archer: public Character
 {
 public:
-	Archer(std::stirng name): Character(
+	Archer(std::string name, int level): Character(
 			name,
 			BASE_HEALTH_QUOTIANT * 11,
 			"Archer",
@@ -205,7 +210,7 @@ public:
 class Warrior: public Character
 {
 public:
-	Warrior(std::stirng name): Character(
+	Warrior(std::string name, int level): Character(
 			name,
 			BASE_HEALTH_QUOTIANT * 10,
 			"Warrior",
@@ -215,24 +220,39 @@ public:
 	{}
 };
 
-void player_action(Character* player, Chracter* enemy)
-{	
+void player_action(Character* player)
+{
+	std::string action;	
 	std::cout 
-		<< "What action do you want to take: " << std::endl;
-		<< "Attack, Defend" << std::endl;
+		<< "What action do you want to take: " << std::endl
+		<< "Attack, Defend: "; 
 	std::cin >> action;
 		
 	if (action == "Attack")
 	{
-		player->actions->mark_attacking();
+		player->action->mark_attacking();
 	}
 	else if (action == "Defend") 
 	{
-		player->actions->mark_defending();
+		player->action->mark_defending();
 	}
 }
 
+void enemy_action(Character* enemy, Character* player)
+{
+	//implement logic
+	enemy->action->mark_attacking();
+}
 
+Character* generate_enemy(int floor, int player_level)
+{
+	return new Character("Goblin",
+			BASE_HEALTH_QUOTIANT * (floor + player_level),
+			"Scout",
+			new Weapon("Goblin Dagger", .75 * BASE_HEALTH_QUOTIANT, DamageType::PIERCING),
+			new Armor("Tattered Garb", DamageType::STRIKING, DamageType::NONE, DamageType::NONE),
+			(.5 * (floor + player_level)));
+}
 int main(void) 
 {
 	
@@ -269,7 +289,7 @@ int main(void)
 		int enemies_per_floor = int(floor * ENEMIES_PER_FLOOR_MODIFIER);
 		while(enemies_per_floor-- > 0)
 		{
-			Character* enemy = generateEnemy(floor, player->level);
+			Character* enemy = generate_enemy(floor, player->level);
 			std::cout 
 				<< "You have encountered a level " << enemy->level  
 				<< " " << enemy->class_name 
@@ -280,7 +300,7 @@ int main(void)
 				player->print();
 
 				// Priority Queue based on stats?
-				player_action(player, enemy);
+				player_action(player);
 				enemy_action(enemy, player);
 
 				if (player->level > enemy->level) 
@@ -295,9 +315,11 @@ int main(void)
 				}
 
 			} while(enemy->is_alive());
-
+			std::cout << player->name << " has defeated the " << enemy->name << " " << enemy->class_name << "!" << std::endl;
 			player->gain_exp(enemy);
+			delete enemy;
 		}
+		std::cout << player->name << " advances deeper into the dungeon" << std::endl;
 		player->gain_exp(floor * EXP_PER_FLOOR_MOD);
 	} while(is_running);
 	
