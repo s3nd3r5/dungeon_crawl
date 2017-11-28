@@ -1,10 +1,14 @@
+#include <map>
 #include <iostream>
 #include <string>
+#include <random>
+#include <ctime>
 const int EXP_PER_LEVEL_MOD = 100;
 const int EXP_PER_FLOOR_MOD = 50;
 const int EXP_PER_KILL_MOD = 50;
 const int BASE_HEALTH_QUOTIANT = 10;
 const float ENEMIES_PER_FLOOR_MODIFIER = 1.5;
+
 enum DamageType
 {
 	DARK,
@@ -61,6 +65,10 @@ public:
 
 	bool defend;
 	bool attack;
+};
+
+template <class T> class Item {
+	virtual void apply(T applyTo);
 };
 
 class Character
@@ -160,6 +168,24 @@ public:
 	{
 		this->gain_exp(c->level * EXP_PER_KILL_MOD);
 	}
+
+	void gain_item(Item<Character*>* item)
+	{
+		items[item]++;
+	}
+
+	void list_items()
+	{
+		int i = 0;
+		for (auto &item_pair : this->items) 
+		{
+			std::cout 
+				<<  i++ << ": " << item_pair.first.name 
+				<< " [" << item_pair.second << "]" 
+				<< std::endl;
+		}
+	}
+
 	void print()
 	{
 		std::cout 
@@ -179,6 +205,7 @@ public:
 	Actions* action;
 	Weapon* weapon;
 	Armor* armor;
+	std::map<Item<Character*>*i, int> items;
 };
 
 class Mage: public Character 
@@ -220,22 +247,87 @@ public:
 	{}
 };
 
-void player_action(Character* player)
+
+class Goblin: public Character {
+public:
+	Goblin(std::string class_name, Weapon* weapon, Armor* armor, int level): Character(
+			"Goblin",
+			BASE_HEALTH_QUOTIANT * 8 * level,
+			class_name,
+			weapon,
+			armor,
+			level)
+	{}
+};
+
+class Golem: public Character {
+public:
+	Golem(int level): Character(
+			"Golem",
+			BASE_HEALTH_QUOTIANT * 11 * level,
+			"Stone",
+			new Weapon("Golem Fists", 1.5 * BASE_HEALTH_QUOTIANT * level, DamageType::STRIKING),
+			new Armor("Stone Sheild", DamageType::NONE, DamageType::PIERCING, DamageType::NONE),
+			level)
+	{}
+			
+};
+
+bool player_action(Character* player)
 {
 	std::string action;	
 	std::cout 
 		<< "What action do you want to take: " << std::endl
-		<< "Attack, Defend: "; 
+		<< "Attack, Defend, Item: "; 
 	std::cin >> action;
 		
 	if (action == "Attack")
 	{
 		player->action->mark_attacking();
+		return true;
 	}
 	else if (action == "Defend") 
 	{
 		player->action->mark_defending();
+		return true;
 	}
+	else if (action == "Item")
+	{
+		int item_index;
+		if (player->items->size() > 0) {
+			player->list_items();
+			std::cout << "Item: ";
+			std::cin << item_index;
+			int c_index = 0;
+			for (auto &item_pair : player->items)
+			{
+				if (c_index++ == item_index)
+				{
+					item_pair.first.apply(player);
+					item_pair.second--;
+					if (item_pair.second <= 0)
+					{
+						player->items.erase(item_pair.first);
+					}		
+					break;
+				}
+			}
+			
+		} 
+		else 
+		{
+			std::cout << "No Items" << std::endl;
+			return false;
+		}
+	}
+
+	return false;
+}
+
+int random_int(int min, int median)
+{
+	std::cout << min << ":" << median << std::endl;
+	return (rand() % (median + min)) + min;	
 }
 
 void enemy_action(Character* enemy, Character* player)
@@ -246,16 +338,27 @@ void enemy_action(Character* enemy, Character* player)
 
 Character* generate_enemy(int floor, int player_level)
 {
-	return new Character("Goblin",
-			BASE_HEALTH_QUOTIANT * (floor + player_level),
-			"Scout",
-			new Weapon("Goblin Dagger", .75 * BASE_HEALTH_QUOTIANT, DamageType::PIERCING),
-			new Armor("Tattered Garb", DamageType::STRIKING, DamageType::NONE, DamageType::NONE),
-			(.5 * (floor + player_level)));
+	int level = random_int(floor, player_level);
+	std::cout << "random int: " << level << std::endl;
+	return new Goblin(
+		"Mage",
+		new Weapon("Goblinite Staff", 1.5 * level * BASE_HEALTH_QUOTIANT, DamageType::ELEMENTAL),
+		new Armor("Tattered Garb", DamageType::PIERCING, DamageType::NONE, DamageType::NONE),
+		level);
 }
+
+class Potion: Item<Character*>
+{
+ 	void apply(Character* c)
+	{
+		c->health += 50; //can overheal right now
+	}
+};	
+
 int main(void) 
 {
-	
+
+	srand((int)time(0));
 	std::string name;	
 	std::string class_name;
 	Character* player;
@@ -266,7 +369,7 @@ int main(void)
 	std::cin >> name;
 
 	std::cout << "What class do you want to be: " << std::endl;
-	std::cout << "Mage, Warrior, Archer";
+	std::cout << "Mage, Warrior, Archer: ";
 	std::cin >> class_name;
 
 	if (class_name == "Mage") 
@@ -300,7 +403,7 @@ int main(void)
 				player->print();
 
 				// Priority Queue based on stats?
-				player_action(player);
+				while(!player_action(player));
 				enemy_action(enemy, player);
 
 				if (player->level > enemy->level) 
@@ -315,7 +418,14 @@ int main(void)
 				}
 
 			} while(enemy->is_alive());
-			std::cout << player->name << " has defeated the " << enemy->name << " " << enemy->class_name << "!" << std::endl;
+			std::cout 
+				<< player->name 
+				<< " has defeated the " 
+				<< enemy->name 
+				<< " " 
+				<< enemy->class_name 
+				<< "!" 
+				<< std::endl;
 			player->gain_exp(enemy);
 			delete enemy;
 		}

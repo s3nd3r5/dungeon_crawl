@@ -2,3 +2,5 @@ main
 target/
 bin/
 a.out
+*.o
+dungeon_crawl
