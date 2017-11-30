@@ -9,6 +9,13 @@ const int EXP_PER_KILL_MOD = 50;
 const int BASE_HEALTH_QUOTIANT = 10;
 const float ENEMIES_PER_FLOOR_MODIFIER = 1.5;
 
+enum ItemNames {
+	POTION,
+	GOOD_POTION,
+	GREAT_POTION,
+	SUPER_POTION,
+	MEGA_POTION
+};
 enum DamageType
 {
 	DARK,
@@ -68,7 +75,9 @@ public:
 };
 
 template <class T> class Item {
-	virtual void apply(T applyTo);
+public:
+	Item() {}
+	virtual void apply(T applyTo) = 0;
 };
 
 class Character
@@ -169,23 +178,20 @@ public:
 		this->gain_exp(c->level * EXP_PER_KILL_MOD);
 	}
 
-	void gain_item(Item<Character*>* item)
+	void gain_item(ItemNames name, int i)
 	{
-		items[item]++;
+		items[name] += i;
 	}
-
+	void gain_item(ItemNames name) { this->gain_item(name, 1); }
 	void list_items()
 	{
-		int i = 0;
-		for (auto &item_pair : this->items) 
+		int item_index = 0;
+		for(auto &pair : this->items)
 		{
-			std::cout 
-				<<  i++ << ": " << item_pair.first.name 
-				<< " [" << item_pair.second << "]" 
-				<< std::endl;
+			std::cout << item_index << ": " << pair.first << "[" << pair.second << "]" << std::endl;
+			item_index++;
 		}
-	}
-
+	}	
 	void print()
 	{
 		std::cout 
@@ -205,8 +211,11 @@ public:
 	Actions* action;
 	Weapon* weapon;
 	Armor* armor;
-	std::map<Item<Character*>*i, int> items;
+	std::map<ItemNames, int> items;
 };
+
+
+std::map<ItemNames, Item<Character*>*> items;
 
 class Mage: public Character 
 {
@@ -294,16 +303,16 @@ bool player_action(Character* player)
 	else if (action == "Item")
 	{
 		int item_index;
-		if (player->items->size() > 0) {
+		if (!player->items.empty()) {
 			player->list_items();
 			std::cout << "Item: ";
-			std::cin << item_index;
+			std::cin >> item_index;
 			int c_index = 0;
 			for (auto &item_pair : player->items)
 			{
 				if (c_index++ == item_index)
 				{
-					item_pair.first.apply(player);
+					items[item_pair.first]->apply(player);
 					item_pair.second--;
 					if (item_pair.second <= 0)
 					{
@@ -347,17 +356,38 @@ Character* generate_enemy(int floor, int player_level)
 		level);
 }
 
-class Potion: Item<Character*>
+class Potion: public Item<Character*>
 {
+public:
+       	Potion(int lvl)
+	{
+		this->health_mod = lvl * this->BASE_HEALTH;
+	}
  	void apply(Character* c)
 	{
-		c->health += 50; //can overheal right now
+		c->health += this->health_mod; //can overheal right now
 	}
-};	
+private:
+	int BASE_HEALTH = 50;
+	int health_mod;
+}; 
+
+
+void init_items()
+{
+	items[ItemNames::POTION]	 		= new Potion(1);
+	items[ItemNames::GOOD_POTION]			= new Potion(2);
+	items[ItemNames::GREAT_POTION]			= new Potion(3);
+	items[ItemNames::SUPER_POTION]			= new Potion(4);
+	items[ItemNames::MEGA_POTION]			= new Potion(5);
+
+}
+
 
 int main(void) 
 {
 
+	init_items();
 	srand((int)time(0));
 	std::string name;	
 	std::string class_name;
@@ -384,6 +414,8 @@ int main(void)
 	{
 		player = new Archer(name, 1);
 	}
+	
+	player->gain_item(ItemNames::POTION, 5);
 
 	bool is_running = true;
 	int floor = 1;
